@@ -255,15 +255,22 @@ async def register(body: AuthIn, response: Response):
 @api.post("/auth/login")
 async def login(body: AuthIn, request: Request, response: Response):
     email = valid_email(body.email)
-    ident = f"{request.client.host if request.client else 'x'}:{email}"
+    ip = request.headers.get("x-forwarded-for", "").split(",")[0].strip() or (request.client.host if request.client else "x")
+    ident = f"{ip}:{email}"
     att = await db.login_attempts.find_one({"identifier": ident})
     now = datetime.now(timezone.utc)
-    if att and att.get("count", 0) >= 5 and att.get("locked_until") and datetime.fromisoformat(att["locked_until"]) > now:
-        raise HTTPException(429, "Muitas tentativas. Tente novamente em 15 minutos.")
+    if att and att.get("locked_until"):
+        if datetime.fromisoformat(att["locked_until"]) > now:
+            raise HTTPException(429, "Muitas tentativas. Tente novamente em 15 minutos.")
+        await db.login_attempts.delete_many({"identifier": ident})
+        att = None
     doc = await db.users.find_one({"email": email})
     if not doc or not verify_password(body.password, doc["password_hash"]):
         count = (att.get("count", 0) if att else 0) + 1
-        await db.login_attempts.update_one({"identifier": ident}, {"$set": {"count": count, "locked_until": (now + timedelta(minutes=15)).isoformat()}}, upsert=True)
+        update = {"count": count}
+        if count >= 5:
+            update["locked_until"] = (now + timedelta(minutes=15)).isoformat()
+        await db.login_attempts.update_one({"identifier": ident}, {"$set": update}, upsert=True)
         raise HTTPException(401, "E-mail ou senha incorretos")
     await db.login_attempts.delete_many({"identifier": ident})
     set_auth_cookies(response, str(doc["_id"]))
