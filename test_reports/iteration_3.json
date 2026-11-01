@@ -1,0 +1,29 @@
+{
+  "summary": "Iteration 3 verified three new features end-to-end. Backend: 15/15 new pytest cases pass in /app/backend/tests/test_iter3_features.py — (A) GET /api/recurring/upcoming returns due items within window with correct days_left and clamped due_date (today=2026-11-29,day=1 -> 2026-12-01 days_left=2; day 31 in Feb -> 2026-02-28; days_left=0 when due today; inactive & future start_month excluded; 401 unauth); (B) POST /api/budgets/copy copies effective (default+override) limits, writes override only when value != default, 422 same-month, 400 no source, 401 unauth, cleanup; (C) GET /api/export/year returns xlsx with sheets ['Resumo','Janeiro'..'Dezembro'], Resumo contains 'Total do ano' + 'Despesas por categoria', monthly sheets have seeded rows; 422 invalid year, 401 unauth. UI: fresh user registered → recurring created on today's day → Dashboard shows due-alert with correct 'vence hoje' pill and total; dismiss hides it and persists via sessionStorage on reload; removing recurring + clearing sessionStorage shows no alert. Planejamento: created default mercado=500 + lazer=300 override, budget-copy-button copies 2 limits to next month, toast '2 limites copiados para Dezembro de 2026' with 'Ver' switches month; next month shows both rows with budget-override-tag-lazer present and no tag on mercado (since equal to default). Movimentações: export-year-button downloaded finance-nunes-2026.xlsx; export-button correctly disabled for empty month. Regressions from iter 1&2 (per-month overrides, month export, auth, CRUD) untouched.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {"ui_bugs": [], "integration_issues": [], "design_issues": []},
+  "test_report_links": [
+    "/app/backend/tests/test_iter3_features.py",
+    "/app/test_reports/pytest/iter3.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "server.py upcoming_recurring iterates offsets 0..days and clamps r.day to monthrange(d.year,d.month)[1] — correctly handles month rollover and 31-day months. Good.",
+    "copy_budgets uses effective_budgets to merge defaults+overrides, and skips writing an override when the value equals the default (deletes any stale override at target). Prevents noisy 'só' tags on next month. Good.",
+    "export_year composes Resumo + 12 month tabs via fill_month_sheet reuse; reuses month_items so recurring/installments show up per month without duplication. year_items accumulates for Total do ano and category breakdown; percentages via '0.0%' format. Good.",
+    "DueAlert.jsx uses sessionStorage keyed by today() so dismiss persists for the day only — correct intended UX. AnimatePresence exit animation adds a short delay before element leaves the DOM; UI tests must wait ~1s after click.",
+    "Budgets.jsx budget-copy-button only renders when budgets exist (`!!budgets?.length`) and is disabled while copying. Toast action 'Ver' switches month via setMonth(to). Good.",
+    "Transactions.jsx exportXlsx handles both 'month' and 'year' kinds and sets a hard-coded download filename; export-button is disabled when the current month has zero txs (as intended) while export-year-button is always clickable. Minor nit: when API returns an error blob, errorMessage parsing falls back to a generic toast ('Não foi possível gerar a planilha') — acceptable but could parse the blob JSON for better detail.",
+    "server.py now 849 lines — further past the 700-line soft cap flagged in iter2. Still not a blocker but a split into routers would help maintainability."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_iter3_features.py"
+  ],
+  "success_rate": {"backend": "100%", "frontend": "100%"},
+  "test_credentials": "Admin rian@financenunes.com / Nunes@2026 (verified). New-feature tests used throwaway TEST_* registered users; admin data untouched.",
+  "seed_data_creation": "All budgets, transactions and recurring created during pytest and Playwright runs were deleted at the end of each test. One or two Playwright users remain registered (TEST_ui_*@test.local) with no data; harmless.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Three new features fully covered. For UI tests of DueAlert, allow ~1000-1500ms after clicking due-alert-dismiss for AnimatePresence exit before asserting element removal. The frontend passes local-date `today()` to /api/recurring/upcoming — use the same evaluate() helper in future tests. Budget copy correctly suppresses override when value equals default; use lazer-300 + mercado-default-500 pattern to validate tag visibility on next month. test_iter3_features.py is pytest-xdist safe (module-scoped user fixtures).",
+  "rca of the issue": "n/a — nothing failed."
+}

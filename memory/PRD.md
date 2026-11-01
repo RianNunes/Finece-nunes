@@ -22,6 +22,7 @@ Rian Nunes – single user tracking monthly personal finances on desktop/mobile.
 - Tested: 44/44 backend, full frontend flow (iteration_1)
 - Per-month budget overrides (special limit for a single month, falls back to default) – 2026-06
 - Excel export (.xlsx) of the month's transactions with totals – 2026-06 (iteration_2 passed)
+- Due-bill alert on dashboard (recurring due in next 3 days, dismissible), yearly Excel export (Resumo + 12 month sheets), copy budgets to next month – 2026-06 (iteration_3 passed)
 
 ## Backlog
 - P1: CSV/Excel export, password reset flow, per-month budget overrides
