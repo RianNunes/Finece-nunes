@@ -24,6 +24,8 @@ from pydantic import BaseModel, Field, BeforeValidator, AfterValidator, ConfigDi
 from openpyxl import Workbook
 from openpyxl.styles import Font, PatternFill
 from emergentintegrations.llm.chat import LlmChat, UserMessage, TextDelta, StreamDone
+from files_api import create_files_router
+from storage_service import storage
 
 client = AsyncIOMotorClient(os.environ["MONGO_URL"])
 db = client[os.environ["DB_NAME"]]
@@ -818,6 +820,7 @@ async def root():
 
 
 app.include_router(api)
+app.include_router(create_files_router(db, current_user))
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[os.environ["FRONTEND_URL"], "http://localhost:3000"],
@@ -825,6 +828,17 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+@app.on_event("startup")
+async def startup_storage():
+    await db.files.create_index("id", unique=True)
+    await db.files.create_index([("user_id", 1), ("is_deleted", 1), ("created_at", -1)])
+    try:
+        await storage.initialize()
+        logger.info("Private file storage initialized")
+    except HTTPException:
+        logger.warning("Private file storage unavailable; file requests will retry initialization")
 
 
 @app.on_event("startup")
@@ -845,4 +859,5 @@ async def startup():
 
 @app.on_event("shutdown")
 async def shutdown():
+    await storage.close()
     client.close()

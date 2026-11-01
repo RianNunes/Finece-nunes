@@ -1,0 +1,70 @@
+{
+  "summary": "Tested REAL managed object storage through the public preview. Latest backend suites: 9/11 cases pass. TXT/unicode, CSV, PNG, PDF, XLSX and WAV roundtrip byte-for-byte; browser-created playable WebM also roundtrips and plays. Authentication, ownership isolation, metadata privacy, origin checks, size/extension validation, literal search, pagination and soft deletion pass. UI input/drop uploads, partial failures, progress, search/filter, image/text/audio/video previews, Office download, pagination, deletion and reload/login persistence pass. Confirmed hidden modal download error and corrupt PNG acceptance; public cache header differs. PDF iframe remains blank in test Chromium, including diagnostic without sandbox, so native PDF rendering is unverified. Finance navigation smoke passed; no finance mutations or AI calls.",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {"endpoint": "POST /api/files", "issue": "A 28-byte non-image beginning with the PNG magic signature is accepted as image/png (201), not rejected (415). validate_content only checks startswith; no image decoding/integrity validation."},
+      {"endpoint": "GET /api/files/{id}/download", "issue": "Public Cache-Control is 'no-store, no-cache, must-revalidate', not required 'private, no-store'. Reproduced twice; application source sets the expected value, suggesting upstream rewriting. no-store is preserved, so this is not evidence of a cache leak."}
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [
+      {"component": "Files / FilePreview", "issue": "Preview download failures render outside the modal behind its dark overlay, and the dialog has no alert. Reproduced without mocks: preview TXT, delete via same authenticated API session, click modal download; real 404 'Arquivo não encontrado.' is nearly unreadable behind modal.", "selector": "[data-testid='file-preview-download']; [data-testid='files-download-error']", "priority": "HIGH"}
+    ],
+    "integration_issues": [
+      {"flow": "PDF preview", "issue": "Valid PDF bytes upload/download correctly, but the preview shows an empty white iframe with no error/fallback. Removing sandbox diagnostically still yielded blank content in this test Chromium. Cannot distinguish native viewer availability from application rendering failure here; verify in supported headed browsers. Source uses sandbox on a native PDF iframe, a known Chromium compatibility risk.", "affected_selectors": ["[data-testid='file-preview-pdf']", "[data-testid='file-preview-content']"]}
+    ],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_file_storage.py",
+    "/app/backend/tests/test_file_malformed_image.py",
+    "/app/test_reports/pytest/iter4_storage.xml",
+    "/app/test_reports/pytest/iter4_malformed.xml",
+    "/app/test_reports/storage_ui_test.py",
+    "/app/test_reports/storage_ui_extended.py",
+    "/app/test_reports/storage_ui_states.py",
+    "/app/test_reports/storage_pdf_diagnostic.py",
+    "/app/test_reports/storage_cleanup_inventory.json"
+  ],
+  "action_items": [
+    "Pass downloadError into FilePreview and render an actionable alert inside the dialog; keep list error for row downloads.",
+    "Validate image structure with a trusted decoder (bounded dimensions) rather than magic bytes alone; rerun corrupt-PNG regression.",
+    "Verify PDF rendering in headed Chromium and other supported browsers; consider a controlled PDF renderer or clear fallback. Do not assume iframe existence means content rendered.",
+    "Check preview ingress cache-header rewriting; preserve private alongside no-store if the platform permits. Current response still forbids caching."
+  ],
+  "critical_code_review_comments": [
+    "FileDialogs.jsx line 42 uses a sandboxed native PDF iframe; Chromium sandbox disables plugins/native PDF embedding in some contexts. Research reference: https://groups.google.com/a/chromium.org/g/chromium-bugs/c/z5hA0H6LFws . Diagnostic did not isolate sandbox as sole cause in this browser.",
+    "file_validation.py line 66 trusts PNG signature only. The live corrupt-image test proves invalid bytes reach real provider storage.",
+    "Files.jsx line 52 owns the download alert outside FilePreview; modal accessibility isolation and overlay hide the message.",
+    "No application source changes made. Object storage logs confirm real provider PUT/GET 200 responses; no server exceptions observed."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_file_storage.py",
+    "/app/backend/tests/test_file_malformed_image.py",
+    "/app/memory/test_credentials.md",
+    "/app/test_reports/storage_user.json",
+    "/app/test_reports/storage_assets/TEST_ação [2026].txt",
+    "/app/test_reports/storage_assets/TEST_dados.csv",
+    "/app/test_reports/storage_assets/TEST_imagem.png",
+    "/app/test_reports/storage_assets/TEST_documento.pdf",
+    "/app/test_reports/storage_assets/TEST_planilha.xlsx",
+    "/app/test_reports/storage_assets/TEST_audio.wav",
+    "/app/test_reports/storage_ui_test.py",
+    "/app/test_reports/storage_ui_extended.py",
+    "/app/test_reports/storage_ui_states.py",
+    "/app/test_reports/storage_pdf_diagnostic.py",
+    "/app/test_reports/storage_cleanup_inventory.py",
+    "/app/test_reports/storage_cleanup_inventory.json",
+    "/app/test_reports/pytest/iter4_storage.xml",
+    "/app/test_reports/pytest/iter4_malformed.xml",
+    "/app/test_reports/iteration_4.json"
+  ],
+  "success_rate": {"backend": "81.8% (9/11 latest cases)", "frontend": "Not numerically scored: core workflows pass; modal download error fails; PDF rendering unverified"},
+  "test_credentials": "Read admin credentials before testing, but used only four disposable TEST_storage_owner/other accounts, immediately documented in /app/memory/test_credentials.md. Current UI owner credentials also in /app/test_reports/storage_user.json.",
+  "seed_data_creation": "Four disposable accounts remain. Exactly 44 test file metadata rows are soft-deleted and 0 active test uploads remain, independently verified via Mongo. Provider objects remain intentionally because physical deletion is unsupported. Full names/IDs in storage_cleanup_inventory.json. Existing admin/finance data untouched.",
+  "retest_needed": true,
+  "main_agent_can_self_test": false,
+  "context_for_next_testing_agent": "Use public URL from frontend/.env. Storage suites generate actual uploads and consume provider storage; cleanup is soft deletion only. First UI video fixture had no updated canvas frames and failed play(); corrected dynamic 2s recording played and byte-roundtripped. Follow-up scripts completed interrupted Office/drop/error/regression/cleanup tests. Tested widths 320/768/1024/1440, all six mobile nav links and long filenames, no horizontal overflow; preview/delete dialogs fit. Network abort was deliberately injected only to test list error/retry; no storage or production API implementation is MOCKED. UI scripts are snippets for the browser tool async wrapper, not standalone Python programs. PDF blank occurs with and without iframe sandbox in this automation environment; do not claim rendering passed. Final cleanup confirmed 0 active uploads.",
+  "rca of the issue": "Confirmed: Files.jsx stores downloadError but FilePreview never receives/renders it, so Radix overlay hides the alert. Confirmed: image validator accepts any PNG-prefixed payload, proven by 201 for invalid 28-byte upload. Cache mismatch is external-only; source explicitly sets private,no-store, upstream rewriting is suspected, not proven. PDF rendering RCA is inconclusive: correct application/pdf blob and valid PDF, blank iframe, sandbox removal did not fix automation rendering. Native viewer support requires headed-browser verification."
+}

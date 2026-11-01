@@ -1,11 +1,12 @@
 import { NavLink, Outlet } from "react-router-dom";
-import { LayoutDashboard, ArrowLeftRight, Target, Bot, UserRound, LogOut } from "lucide-react";
+import { LayoutDashboard, ArrowLeftRight, Target, Bot, UserRound, LogOut, FolderOpen } from "lucide-react";
 import { useApp } from "@/context/AppContext";
 
 export const NAV = [
   { to: "/", label: "Painel", icon: LayoutDashboard, id: "dashboard" },
   { to: "/movimentacoes", label: "Movimentações", short: "Extrato", icon: ArrowLeftRight, id: "transactions" },
   { to: "/planejamento", label: "Planejamento", short: "Planos", icon: Target, id: "planning" },
+  { to: "/arquivos", label: "Arquivos", icon: FolderOpen, id: "files" },
   { to: "/assistente", label: "Assistente IA", short: "IA", icon: Bot, id: "assistant" },
   { to: "/perfil", label: "Perfil", icon: UserRound, id: "profile" },
 ];
@@ -46,7 +47,7 @@ export default function Layout() {
           <Outlet />
         </div>
       </main>
-      <nav className="md:hidden glass-strong fixed bottom-3 inset-x-3 rounded-[22px] z-30 grid grid-cols-5 p-1.5" aria-label="Principal" data-testid="bottom-nav">
+      <nav className="md:hidden glass-strong fixed bottom-3 inset-x-3 rounded-[22px] z-30 grid grid-cols-6 p-1.5" aria-label="Principal" data-testid="bottom-nav">
         {NAV.map(({ to, label, short, icon: Icon, id }) => (
           <NavLink key={to} to={to} end={to === "/"} data-testid={`bottom-nav-${id}`}
             className={({ isActive }) => `bottom-item ${isActive ? "is-active" : ""}`}>

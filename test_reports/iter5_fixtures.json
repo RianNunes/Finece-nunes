@@ -1,0 +1,42 @@
+[
+  {
+    "id": "5cf9657a-6ae8-4fd8-882f-e2b3e5e00391",
+    "original_filename": "TEST_iter5_readable.pdf",
+    "content_type": "application/pdf",
+    "kind": "document",
+    "size": 868,
+    "created_at": "2026-11-01T17:15:09.669179+00:00"
+  },
+  {
+    "id": "61ebdee6-0f48-4d60-8979-cb000e5e7856",
+    "original_filename": "TEST_iter5_password.pdf",
+    "content_type": "application/pdf",
+    "kind": "document",
+    "size": 1409,
+    "created_at": "2026-11-01T17:15:09.910732+00:00"
+  },
+  {
+    "id": "c19df6cf-8fc0-46f7-8b02-dafcc49e8288",
+    "original_filename": "TEST_iter5_corrupt.pdf",
+    "content_type": "application/pdf",
+    "kind": "document",
+    "size": 33,
+    "created_at": "2026-11-01T17:15:10.113622+00:00"
+  },
+  {
+    "id": "a428a7db-5bd2-4e2f-a43a-0730a3173144",
+    "original_filename": "TEST_iter5_image.png",
+    "content_type": "image/png",
+    "kind": "image",
+    "size": 261,
+    "created_at": "2026-11-01T17:15:10.339117+00:00"
+  },
+  {
+    "id": "fc777883-941a-4c78-96de-28f481c5ffda",
+    "original_filename": "TEST_iter5_deleted.txt",
+    "content_type": "text/plain",
+    "kind": "document",
+    "size": 32,
+    "created_at": "2026-11-01T17:15:10.602606+00:00"
+  }
+]

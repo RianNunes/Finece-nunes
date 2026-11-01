@@ -9,6 +9,7 @@ import Transactions from "@/pages/Transactions";
 import Planning from "@/pages/Planning";
 import Assistant from "@/pages/Assistant";
 import Profile from "@/pages/Profile";
+import Files from "@/pages/Files";
 
 const Protected = ({ children }) => {
   const { user } = useApp();
@@ -30,6 +31,7 @@ export default function App() {
             <Route path="/planejamento" element={<Planning />} />
             <Route path="/assistente" element={<Assistant />} />
             <Route path="/perfil" element={<Profile />} />
+            <Route path="/arquivos" element={<Files />} />
           </Route>
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>

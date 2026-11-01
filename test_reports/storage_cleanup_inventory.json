@@ -1,0 +1,227 @@
+{
+  "disposable_accounts": 4,
+  "provider_objects_retained": 44,
+  "active_test_uploads": 0,
+  "test_files": [
+    {
+      "id": "2c8593d7-5091-42b0-9098-0a79315ed360",
+      "name": "TEST_ação.txt",
+      "is_deleted": true
+    },
+    {
+      "id": "73d2c90e-d9ee-465c-b3cc-c4c98777d639",
+      "name": "TEST_planilha.xlsx",
+      "is_deleted": true
+    },
+    {
+      "id": "064a3920-9b31-49b2-a1ae-6de8ccce5cc0",
+      "name": "TEST_imagem.png",
+      "is_deleted": true
+    },
+    {
+      "id": "f6b0062c-6843-4472-9772-445072c830e9",
+      "name": "TEST_documento.pdf",
+      "is_deleted": true
+    },
+    {
+      "id": "fa99a842-b395-49b1-bc67-7d7b35822411",
+      "name": "TEST_dados.csv",
+      "is_deleted": true
+    },
+    {
+      "id": "3bb6cf1e-1897-4e79-8718-1514f7c80a9c",
+      "name": "TEST_ação [2026].txt",
+      "is_deleted": true
+    },
+    {
+      "id": "471df7ac-3eb3-4b52-aa21-425420d360ec",
+      "name": "TEST_audio.wav",
+      "is_deleted": true
+    },
+    {
+      "id": "076a6ef8-cf61-4415-ab40-b8c7c98620a0",
+      "name": "TEST_PDF_diagnostic.pdf",
+      "is_deleted": true
+    },
+    {
+      "id": "92ef3a80-3569-4f5f-ae34-a2ebcaf502d1",
+      "name": "TEST_UI_pdf.pdf",
+      "is_deleted": true
+    },
+    {
+      "id": "ccd673bd-1a68-490c-a876-b73bb55b10a4",
+      "name": "TEST_corrupt_signature.png",
+      "is_deleted": true
+    },
+    {
+      "id": "043a3fc5-4240-4a1f-ad7b-953a2a9699c4",
+      "name": "TEST_UI_page_19.txt",
+      "is_deleted": true
+    },
+    {
+      "id": "550f216d-cf44-4d05-a5d1-d9df228e1e03",
+      "name": "TEST_UI_page_18.txt",
+      "is_deleted": true
+    },
+    {
+      "id": "c1902ca2-2096-446b-9778-3847aaed8228",
+      "name": "TEST_UI_page_17.txt",
+      "is_deleted": true
+    },
+    {
+      "id": "bddd1645-f662-47a0-ae17-6e61b1f696d0",
+      "name": "TEST_UI_page_16.txt",
+      "is_deleted": true
+    },
+    {
+      "id": "e8dfa1da-87b3-493c-bbcb-d002cac2ff9f",
+      "name": "TEST_UI_page_15.txt",
+      "is_deleted": true
+    },
+    {
+      "id": "f054c81e-dd0d-4960-b8ff-f0eeedda6523",
+      "name": "TEST_UI_page_14.txt",
+      "is_deleted": true
+    },
+    {
+      "id": "a117837b-debd-4307-baf3-7b0bc4180cd7",
+      "name": "TEST_UI_page_13.txt",
+      "is_deleted": true
+    },
+    {
+      "id": "769e9831-3b4c-4a1e-8b16-62d271427b24",
+      "name": "TEST_UI_page_12.txt",
+      "is_deleted": true
+    },
+    {
+      "id": "6b94f01c-55a2-4516-9866-80650e32cab4",
+      "name": "TEST_UI_page_11.txt",
+      "is_deleted": true
+    },
+    {
+      "id": "23e3e987-353e-4052-ba8f-b6ec9a4baf38",
+      "name": "TEST_UI_page_10.txt",
+      "is_deleted": true
+    },
+    {
+      "id": "10d94dc7-eb93-4387-882f-f8d3f919224b",
+      "name": "TEST_UI_page_09.txt",
+      "is_deleted": true
+    },
+    {
+      "id": "7d5f262a-147b-48ee-ab6e-5d0b51a1ef7c",
+      "name": "TEST_UI_page_08.txt",
+      "is_deleted": true
+    },
+    {
+      "id": "7bd4bed9-47fa-4ef9-8a92-bdb6ab935bec",
+      "name": "TEST_UI_page_07.txt",
+      "is_deleted": true
+    },
+    {
+      "id": "7d624a34-3482-4c6c-8ab3-a0c0121de7df",
+      "name": "TEST_UI_page_06.txt",
+      "is_deleted": true
+    },
+    {
+      "id": "2c527e7d-7d39-44fb-a65a-a1e62ee4f5c7",
+      "name": "TEST_UI_page_05.txt",
+      "is_deleted": true
+    },
+    {
+      "id": "6e09a9f1-3a4a-4304-a01a-0aab84279b74",
+      "name": "TEST_UI_page_04.txt",
+      "is_deleted": true
+    },
+    {
+      "id": "4336d832-d2e2-43eb-8955-45f17d109a2a",
+      "name": "TEST_UI_page_03.txt",
+      "is_deleted": true
+    },
+    {
+      "id": "6e54746c-6351-419a-9e7a-c06cb4f404ab",
+      "name": "TEST_UI_page_02.txt",
+      "is_deleted": true
+    },
+    {
+      "id": "7b1991c2-ed23-4b1c-8659-fa337afff2bb",
+      "name": "TEST_UI_page_01.txt",
+      "is_deleted": true
+    },
+    {
+      "id": "e5d424c8-28f7-4087-b319-020b44d6f2ea",
+      "name": "TEST_UI_page_00.txt",
+      "is_deleted": true
+    },
+    {
+      "id": "cc62501c-7a84-4db2-b033-d09051f81c83",
+      "name": "TEST_UI_drop.txt",
+      "is_deleted": true
+    },
+    {
+      "id": "2e52e7d7-11db-4e4c-bca1-6387581b1255",
+      "name": "TEST_UI_video_frames.webm",
+      "is_deleted": true
+    },
+    {
+      "id": "1bef697f-9ccd-4d1c-81fe-8fa4d49c7447",
+      "name": "TEST_UI_office.xlsx",
+      "is_deleted": true
+    },
+    {
+      "id": "d857719f-4975-40f2-bb26-8d57fc0620d9",
+      "name": "TEST_UI_video.webm",
+      "is_deleted": true
+    },
+    {
+      "id": "f90b4e1e-e874-484a-abcb-2e82950211e5",
+      "name": "TEST_UI_audio.wav",
+      "is_deleted": true
+    },
+    {
+      "id": "1d9fd1c2-9c79-4719-90dc-3706c7cbad80",
+      "name": "TEST_UI_image.png",
+      "is_deleted": true
+    },
+    {
+      "id": "044a7942-e4be-4f55-a582-df0ec631588a",
+      "name": "TEST_UI_ação_nome_muito_longo_nome_muito_longo_nome_muito_longo_nome_muito_longo_nome_muito_longo_nome_muito_longo_nome_muito_longo_nome_muito_longo_.txt",
+      "is_deleted": true
+    },
+    {
+      "id": "80a14c41-33a6-424e-a7b6-e3ec8bfcce33",
+      "name": "TEST_ação.txt",
+      "is_deleted": true
+    },
+    {
+      "id": "a5defefd-505c-4767-90b0-6c5141665fa6",
+      "name": "TEST_planilha.xlsx",
+      "is_deleted": true
+    },
+    {
+      "id": "615afd35-90ad-4940-9b5a-6afc1d601f12",
+      "name": "TEST_imagem.png",
+      "is_deleted": true
+    },
+    {
+      "id": "170713fc-01da-48d5-ac91-cf44bddf096e",
+      "name": "TEST_documento.pdf",
+      "is_deleted": true
+    },
+    {
+      "id": "c27d97d4-71e5-4838-8824-8e57dc508fa3",
+      "name": "TEST_dados.csv",
+      "is_deleted": true
+    },
+    {
+      "id": "b3382345-da9a-455e-8d71-0e7d8da65854",
+      "name": "TEST_ação [2026].txt",
+      "is_deleted": true
+    },
+    {
+      "id": "1543642b-224c-4961-b4be-9bb25f79e4bc",
+      "name": "TEST_audio.wav",
+      "is_deleted": true
+    }
+  ]
+}
