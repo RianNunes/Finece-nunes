@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
-import { Plus, Search, Receipt } from "lucide-react";
+import { Plus, Search, Receipt, Download } from "lucide-react";
 import { api, errorMessage } from "@/lib/api";
 import { useApp, useFetch } from "@/context/AppContext";
 import { EXPENSE_CATEGORIES, INCOME_CATEGORIES, fmt } from "@/lib/finance";
@@ -23,6 +23,19 @@ export default function Transactions() {
     (!q || (t.description || "").toLowerCase().includes(q.toLowerCase()))), [txs, q, type, cat]);
   const total = list.reduce((s, t) => s + (t.type === "income" ? t.amount : -t.amount), 0);
 
+  const [exporting, setExporting] = useState(false);
+  const exportXlsx = async () => {
+    setExporting(true);
+    try {
+      const r = await api.get("/export", { params: { month }, responseType: "blob" });
+      const url = URL.createObjectURL(r.data);
+      const a = Object.assign(document.createElement("a"), { href: url, download: `finance-nunes-${month}.xlsx` });
+      a.click();
+      URL.revokeObjectURL(url);
+      toast.success("Planilha baixada");
+    } catch (e) { toast.error("Não foi possível gerar a planilha"); } finally { setExporting(false); }
+  };
+
   const remove = async () => {
     try {
       await api.delete(`/transactions/${confirm.id}`);
@@ -35,6 +48,7 @@ export default function Transactions() {
     <div>
       <PageHeader eyebrow="Extrato" title="Movimentações">
         <MonthSwitcher />
+        <button className="btn-ghost" onClick={exportXlsx} disabled={exporting || !txs?.length} data-testid="export-button"><Download size={16} /> {exporting ? "Gerando..." : "Planilha"}</button>
         <button className="btn-primary" onClick={(e) => setForm({ origin: originFrom(e) })} data-testid="new-transaction-button"><Plus size={17} /> Nova</button>
       </PageHeader>
       <section className="glass card">

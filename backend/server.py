@@ -3,6 +3,7 @@ from pathlib import Path
 
 load_dotenv(Path(__file__).parent / ".env")
 
+import io
 import os
 import re
 import json
@@ -20,6 +21,8 @@ from fastapi.responses import StreamingResponse
 from starlette.middleware.cors import CORSMiddleware
 from motor.motor_asyncio import AsyncIOMotorClient
 from pydantic import BaseModel, Field, BeforeValidator, AfterValidator, ConfigDict
+from openpyxl import Workbook
+from openpyxl.styles import Font, PatternFill
 from emergentintegrations.llm.chat import LlmChat, UserMessage, TextDelta, StreamDone
 
 client = AsyncIOMotorClient(os.environ["MONGO_URL"])
@@ -102,6 +105,7 @@ class Budget(BaseDocument):
     user_id: str
     category: str
     limit: float
+    month: Optional[str] = None
 
 
 class Goal(BaseDocument):
@@ -164,6 +168,7 @@ class RecurringIn(BaseModel):
 class BudgetIn(BaseModel):
     category: ExpenseCat
     limit: float = Field(gt=0)
+    month: Optional[str] = None
 
 
 class GoalIn(BaseModel):
@@ -498,13 +503,14 @@ async def list_budgets(user: User = Depends(current_user)):
 
 @api.put("/budgets")
 async def upsert_budget(body: BudgetIn, user: User = Depends(current_user)):
-    await db.budgets.update_one({"user_id": user.id, "category": body.category}, {"$set": {"limit": body.limit}}, upsert=True)
-    return Budget.from_mongo(await db.budgets.find_one({"user_id": user.id, "category": body.category})).model_dump()
+    q = {"user_id": user.id, "category": body.category, "month": check_month(body.month) if body.month else None}
+    await db.budgets.update_one(q, {"$set": {"limit": body.limit, "month": q["month"]}}, upsert=True)
+    return Budget.from_mongo(await db.budgets.find_one(q)).model_dump()
 
 
 @api.delete("/budgets/{category}")
-async def delete_budget(category: str, user: User = Depends(current_user)):
-    res = await db.budgets.delete_one({"user_id": user.id, "category": category})
+async def delete_budget(category: str, month: Optional[str] = None, user: User = Depends(current_user)):
+    res = await db.budgets.delete_one({"user_id": user.id, "category": category, "month": check_month(month) if month else None})
     if not res.deleted_count:
         raise HTTPException(404, "Orçamento não encontrado")
     return {"ok": True}
@@ -560,10 +566,15 @@ async def build_summary(uid: str, month: str) -> dict:
         groups[EXPENSE_GROUPS.get(cat, "other")] += amt
     targets = {"needs": 0.5, "wants": 0.3, "savings": 0.2}
     rule = {k: {"spent": round(groups[k], 2), "target": round(t["income"] * p, 2), "pct": int(p * 100)} for k, p in targets.items()}
+    defaults, overrides = {}, {}
+    for d in await db.budgets.find({"user_id": uid, "month": {"$in": [None, month]}}).to_list(200):
+        b = Budget.from_mongo(d)
+        (overrides if b.month else defaults)[b.category] = b
     budgets = []
-    for b in await db.budgets.find({"user_id": uid}).to_list(100):
-        b = Budget.from_mongo(b)
-        budgets.append({**b.model_dump(), "spent": round(t["by_category"].get(b.category, 0), 2)})
+    for cat in sorted(set(defaults) | set(overrides), key=lambda c: list(EXPENSE_GROUPS).index(c)):
+        b, base = overrides.get(cat) or defaults[cat], defaults.get(cat)
+        budgets.append({**b.model_dump(), "spent": round(t["by_category"].get(cat, 0), 2), "override": bool(b.month),
+                        "default_limit": base.limit if base else None})
     history = []
     for i in range(5, -1, -1):
         m = shift_month(month, -i)
@@ -577,6 +588,45 @@ async def build_summary(uid: str, month: str) -> dict:
 @api.get("/summary")
 async def summary(month: Optional[str] = None, user: User = Depends(current_user)):
     return await build_summary(user.id, check_month(month))
+
+
+# ---------- export ----------
+@api.get("/export")
+async def export_month(month: Optional[str] = None, user: User = Depends(current_user)):
+    month = check_month(month)
+    items = sorted(await month_items(user.id, month), key=lambda x: x["date"])
+    wb = Workbook()
+    ws = wb.active
+    ws.title = month
+    head = Font(bold=True, color="FFFFFF")
+    fill = PatternFill("solid", fgColor="1E3A8A")
+    ws.append([f"Finance Nunes – movimentações de {month}"])
+    ws["A1"].font = Font(bold=True, size=14)
+    ws.append([])
+    ws.append(["Data", "Tipo", "Categoria", "Descrição", "Observação", "Valor (R$)"])
+    for c in ws[3]:
+        c.font, c.fill = head, fill
+    money = '"R$" #,##0.00;[Red]-"R$" #,##0.00'
+    for it in items:
+        obs = "Recorrente" if it.get("recurring") else (f"Parcela {it['installment_no']}/{it['installment_total']}" if it.get("installment_no") else "")
+        y, m, d = it["date"].split("-")
+        val = it["amount"] if it["type"] == "income" else -it["amount"]
+        ws.append([f"{d}/{m}/{y}", "Receita" if it["type"] == "income" else "Despesa", LABELS.get(it["category"], it["category"]), it.get("description", ""), obs, val])
+        ws.cell(ws.max_row, 6).number_format = money
+    t = totals(items)
+    ws.append([])
+    for label, v in (("Total de receitas", t["income"]), ("Total de despesas", -t["expense"]), ("Saldo", t["balance"])):
+        ws.append(["", "", "", "", label, v])
+        ws.cell(ws.max_row, 5).font = Font(bold=True)
+        ws.cell(ws.max_row, 6).number_format = money
+        ws.cell(ws.max_row, 6).font = Font(bold=True)
+    for col, w in zip("ABCDEF", (12, 10, 18, 36, 16, 16)):
+        ws.column_dimensions[col].width = w
+    buf = io.BytesIO()
+    wb.save(buf)
+    buf.seek(0)
+    return StreamingResponse(buf, media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                             headers={"Content-Disposition": f'attachment; filename="finance-nunes-{month}.xlsx"'})
 
 
 # ---------- assistant ----------
@@ -598,10 +648,10 @@ async def finance_context(user: User) -> str:
         for it in items[:40]:
             tag = " (recorrente)" if it.get("recurring") else (f" (parcela {it['installment_no']}/{it['installment_total']})" if it.get("installment_no") else "")
             lines.append(f"    · {it['date']} {'+' if it['type']=='income' else '-'}{brl(it['amount'])} {LABELS.get(it['category'], it['category'])} {it.get('description','')}{tag}")
-    budgets = await db.budgets.find({"user_id": user.id}).to_list(100)
+    budgets = await db.budgets.find({"user_id": user.id}).to_list(200)
     goals = await db.goals.find({"user_id": user.id}).to_list(100)
     recs = await db.recurring.find({"user_id": user.id}).to_list(100)
-    lines.append("Orçamentos mensais: " + (", ".join(f"{LABELS.get(b['category'])} {brl(b['limit'])}" for b in budgets) or "nenhum"))
+    lines.append("Orçamentos mensais: " + (", ".join(f"{LABELS.get(b['category'])} {brl(b['limit'])}" + (f" (só em {b['month']})" if b.get("month") else " (padrão)") for b in budgets) or "nenhum"))
     lines.append("Metas: " + (", ".join(f"{g['name']} {brl(g.get('saved',0))} de {brl(g['target'])}" + (f" até {g['deadline']}" if g.get("deadline") else "") for g in goals) or "nenhuma"))
     lines.append("Recorrentes: " + (", ".join(f"{r['name']} {brl(r['amount'])} dia {r['day']}" for r in recs) or "nenhuma"))
     return "\n".join(lines) if lines else "Nenhum dado registrado ainda."
@@ -674,7 +724,11 @@ async def startup():
     await db.users.create_index("email", unique=True)
     await db.login_attempts.create_index("identifier")
     await db.transactions.create_index([("user_id", 1), ("date", -1)])
-    await db.budgets.create_index([("user_id", 1), ("category", 1)], unique=True)
+    for name, info in (await db.budgets.index_information()).items():
+        if info["key"] == [("user_id", 1), ("category", 1)]:
+            await db.budgets.drop_index(name)
+    await db.budgets.update_many({"month": {"$exists": False}}, {"$set": {"month": None}})
+    await db.budgets.create_index([("user_id", 1), ("category", 1), ("month", 1)], unique=True)
     email = os.environ["ADMIN_EMAIL"].lower()
     if not await db.users.find_one({"email": email}):
         await db.users.insert_one({"email": email, "password_hash": hash_password(os.environ["ADMIN_PASSWORD"]), "name": "Rian Nunes",
