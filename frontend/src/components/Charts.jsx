@@ -11,7 +11,7 @@ export const CategoryDonut = ({ data, total }) => {
   return (
     <div className="grid sm:grid-cols-[200px_1fr] gap-6 items-center" data-testid="category-donut">
       <div className="relative h-[200px]">
-        <ResponsiveContainer>
+        <ResponsiveContainer width="100%" height="100%" initialDimension={{ width: 320, height: 200 }}>
           <PieChart>
             <Pie data={rows} dataKey="amount" nameKey="label" innerRadius={62} outerRadius={92} paddingAngle={2} stroke="none">
               {rows.map((r) => <Cell key={r.key} fill={r.color} />)}
@@ -43,7 +43,7 @@ export const HistoryChart = ({ data }) => {
   const rows = data.map((d) => ({ ...d, name: monthLabel(d.month, true) }));
   return (
     <div className="h-[240px]" data-testid="history-chart">
-      <ResponsiveContainer>
+      <ResponsiveContainer width="100%" height="100%" initialDimension={{ width: 320, height: 200 }}>
         <BarChart data={rows} barGap={4}>
           <CartesianGrid vertical={false} stroke="rgba(255,255,255,.06)" />
           <XAxis dataKey="name" tick={{ fill: "#94a3b8", fontSize: 12 }} axisLine={false} tickLine={false} />

@@ -1,0 +1,33 @@
+{
+  "summary": "Full backend + frontend testing of Finance Nunes. 44/44 pytest backend tests pass (auth, isolation, transactions, installments, recurring, budgets, goals, summary/50-30-20, chat SSE streaming, brute-force lockout). Full UI happy path verified on desktop and mobile (390px): login (wrong password error), register throwaway user, admin login, dashboard stats + month switcher + rule card + donut + history chart, create 3x installment with 'R$ 1.234,56' format, create income, Movimentações search/filter/count, Planejamento (recurring/budget/goal/goal-contribute added, installment card shows 3 rows), AI assistant streams reply and persists history across reload, profile name edit saves, mobile bottom-nav visible.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "Dashboard charts (Charts.jsx)", "issues": ["Recharts logs repeated console warnings 'The width(-1) and height(-1) of chart should be greater than 0'. Visuals render correctly but noisy console. Likely ResponsiveContainer measuring during initial render — consider wrapping with a min-h container or setting an explicit aspect/minHeight to silence."]}
+    ]
+  },
+  "test_report_links": ["/app/backend/tests/test_finance_api.py", "/app/test_reports/pytest/pytest_results.xml"],
+  "action_items": [
+    "Optional: silence recharts width(-1)/height(-1) warnings by giving ResponsiveContainer parents an explicit min-height or by setting aspect.",
+    "Optional cleanup: admin account now has leftover UI-created items ('UI test receita' income R$100, 'UI test compra parcelada' 3x R$1.234,56 in compras, recurring 'UI assinatura' R$29,90 day 10 mercado, budget compras R$2000, goal 'UI meta' R$1000 with R$100 contributed, admin profile name was reset to 'Rian Nunes'). Remove if you want a clean seed."
+  ],
+  "critical_code_review_comments": [
+    "server.py line 311: comparing str(other['_id']) to user.id works because PyObjectId coerces _id to str on load; OK.",
+    "server.py set_auth_cookies uses samesite='none' + secure=True, correct for cross-site preview URL with httpOnly cookies.",
+    "Login lockout logic correct: 5th failure sets locked_until, after window expires it is cleared (test_brute_force_lockout passes).",
+    "Chat endpoint catches exceptions and emits SSE 'error' event; swallows traceback (logged) and still writes 'done' — good UX.",
+    "server.py is 687 lines (near the 700-line soft cap); consider splitting into routers (auth, transactions, planning, chat) soon.",
+    "update_recurring: if body.start_month is empty-string it would fail check_month regex; current frontend sends a valid value or omits, so fine, but input model allows Optional[str] without stripping empty string — minor hardening possible.",
+    "No rate limiting on /auth/register — someone could spam user creation. Low priority."
+  ],
+  "updated_files": ["/app/backend/tests/test_finance_api.py"],
+  "success_rate": {"backend": "100%", "frontend": "100%"},
+  "test_credentials": "Admin rian@financenunes.com / Nunes@2026 (seeded). Throwaway users registered during tests use TEST_* or ttest_* email prefixes.",
+  "seed_data_creation": "Backend tests created TEST_* prefixed users/transactions/goals/budgets/recurring/installments (self-cleaning where applicable). UI test left items on admin account (see action_items).",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "All features verified end-to-end against public preview URL. Admin has test leftovers; delete if desired. Brute-force lockout test uses a fresh throwaway so admin is never locked. SSE chat streaming works with model 'claude-sonnet-5-5' via Emergent LLM key.",
+  "rca of the issue": "n/a — no failures."
+}
