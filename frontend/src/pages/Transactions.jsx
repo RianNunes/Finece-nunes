@@ -24,12 +24,14 @@ export default function Transactions() {
   const total = list.reduce((s, t) => s + (t.type === "income" ? t.amount : -t.amount), 0);
 
   const [exporting, setExporting] = useState(false);
-  const exportXlsx = async () => {
-    setExporting(true);
+  const year = month.slice(0, 4);
+  const exportXlsx = async (kind) => {
+    setExporting(kind);
     try {
-      const r = await api.get("/export", { params: { month }, responseType: "blob" });
+      const [path, params, name] = kind === "year" ? ["/export/year", { year }, year] : ["/export", { month }, month];
+      const r = await api.get(path, { params, responseType: "blob" });
       const url = URL.createObjectURL(r.data);
-      const a = Object.assign(document.createElement("a"), { href: url, download: `finance-nunes-${month}.xlsx` });
+      const a = Object.assign(document.createElement("a"), { href: url, download: `finance-nunes-${name}.xlsx` });
       a.click();
       URL.revokeObjectURL(url);
       toast.success("Planilha baixada");
@@ -48,7 +50,12 @@ export default function Transactions() {
     <div>
       <PageHeader eyebrow="Extrato" title="Movimentações">
         <MonthSwitcher />
-        <button className="btn-ghost" onClick={exportXlsx} disabled={exporting || !txs?.length} data-testid="export-button"><Download size={16} /> {exporting ? "Gerando..." : "Planilha"}</button>
+        <div className="inline-flex rounded-full border border-white/10 bg-white/[0.04] p-1" role="group" aria-label="Baixar planilha">
+          <button className="seg-btn !py-1.5 !px-3 inline-flex items-center gap-1.5 hover:text-white disabled:opacity-40" onClick={() => exportXlsx("month")} disabled={!!exporting || !txs?.length}
+            title="Baixar planilha do mês" data-testid="export-button"><Download size={15} /> {exporting === "month" ? "Gerando..." : "Mês"}</button>
+          <button className="seg-btn !py-1.5 !px-3 inline-flex items-center gap-1.5 hover:text-white disabled:opacity-40" onClick={() => exportXlsx("year")} disabled={!!exporting}
+            title={`Baixar planilha de ${year}, uma aba por mês`} data-testid="export-year-button"><Download size={15} /> {exporting === "year" ? "Gerando..." : `Ano ${year}`}</button>
+        </div>
         <button className="btn-primary" onClick={(e) => setForm({ origin: originFrom(e) })} data-testid="new-transaction-button"><Plus size={17} /> Nova</button>
       </PageHeader>
       <section className="glass card">

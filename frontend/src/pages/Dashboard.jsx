@@ -10,6 +10,7 @@ import { Goals } from "@/components/Goals";
 import { TxRow } from "@/components/TxList";
 import { TransactionForm } from "@/components/TransactionForm";
 import { originFrom } from "@/components/GlassModal";
+import { DueAlert } from "@/components/DueAlert";
 
 const greeting = () => { const h = new Date().getHours(); return h < 12 ? "Bom dia" : h < 18 ? "Boa tarde" : "Boa noite"; };
 
@@ -54,6 +55,7 @@ export default function Dashboard() {
         <MonthSwitcher />
         <button className="btn-primary" onClick={(e) => setForm({ origin: originFrom(e) })} data-testid="new-transaction-button"><Plus size={17} /> Nova movimentação</button>
       </PageHeader>
+      <DueAlert />
       <div className="grid sm:grid-cols-3 gap-4 mb-4">
         <Stat label="Receitas" value={s?.income} icon={TrendingUp} tone="var(--green)" testId="stat-income" delay={0} />
         <Stat label="Despesas" value={s?.expense} icon={TrendingDown} tone="var(--red)" testId="stat-expense" delay={80} />

@@ -1,8 +1,8 @@
 import { useState } from "react";
 import { toast } from "sonner";
-import { Plus, Wallet, Trash2 } from "lucide-react";
+import { Plus, Wallet, Trash2, Copy } from "lucide-react";
 import { api, errorMessage } from "@/lib/api";
-import { EXPENSE_CATEGORIES, fmt, getCategory, monthLabel, parseAmount, progressColor } from "@/lib/finance";
+import { EXPENSE_CATEGORIES, fmt, getCategory, monthLabel, parseAmount, progressColor, shiftMonth } from "@/lib/finance";
 import { GlassModal, ConfirmModal, originFrom } from "@/components/GlassModal";
 import { CategoryPicker } from "@/components/CategoryPicker";
 import { Empty } from "@/components/MonthSwitcher";
@@ -29,8 +29,19 @@ const BudgetRow = ({ b, onEdit }) => {
 };
 
 export const Budgets = ({ budgets }) => {
-  const { bump, month } = useApp();
+  const { bump, month, setMonth } = useApp();
   const [form, setForm] = useState(null);
+  const [copying, setCopying] = useState(false);
+
+  const copyNext = async () => {
+    const to = shiftMonth(month, 1);
+    setCopying(true);
+    try {
+      const { data } = await api.post("/budgets/copy", { from_month: month, to_month: to });
+      toast.success(`${data.count} ${data.count === 1 ? "limite copiado" : "limites copiados"} para ${monthLabel(to)}`, { action: { label: "Ver", onClick: () => setMonth(to) } });
+      bump();
+    } catch (err) { toast.error(errorMessage(err)); } finally { setCopying(false); }
+  };
   const [confirm, setConfirm] = useState(null);
 
   const save = async (e) => {
@@ -56,7 +67,11 @@ export const Budgets = ({ budgets }) => {
     <section className="glass card" data-testid="budgets-card">
       <div className="card-head">
         <h2 className="card-title">Orçamentos do mês</h2>
+        <div className="flex gap-2">
+        {!!budgets?.length && <button className="chip-btn" data-testid="budget-copy-button" onClick={copyNext} disabled={copying}
+          title={`Copiar os limites de ${monthLabel(month)} para ${monthLabel(shiftMonth(month, 1))}`}><Copy size={14} /> {copying ? "Copiando..." : `Copiar p/ ${monthLabel(shiftMonth(month, 1), true)}`}</button>}
         <button className="chip-btn" data-testid="budget-add-button" onClick={(e) => setForm({ origin: originFrom(e), category: "mercado", limit: "", onlyMonth: false })}><Plus size={15} /> Limite</button>
+        </div>
       </div>
       {!budgets?.length ? <Empty icon={Wallet} text="Defina limites por categoria para acompanhar seus gastos." testId="budgets-empty" /> : (
         <div className="space-y-4">

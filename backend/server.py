@@ -10,7 +10,7 @@ import json
 import uuid
 import logging
 import calendar
-from datetime import datetime, timezone, timedelta
+from datetime import datetime, timezone, timedelta, date
 from typing import Optional, Literal, Annotated
 
 import bcrypt
@@ -50,6 +50,7 @@ LABELS = {
 }
 DATE_RE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
 MONTH_RE = re.compile(r"^\d{4}-\d{2}$")
+MONTH_NAMES = ["Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho", "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"]
 
 
 # ---------- base models ----------
@@ -458,6 +459,23 @@ async def delete_installments(group_id: str, user: User = Depends(current_user))
 
 
 # ---------- recurring ----------
+@api.get("/recurring/upcoming")
+async def upcoming_recurring(today: Optional[str] = None, days: int = 3, user: User = Depends(current_user)):
+    base = date.fromisoformat(today) if today and DATE_RE.match(today) else datetime.now(timezone.utc).date()
+    days = max(0, min(days, 31))
+    out = []
+    for doc in await db.recurring.find({"user_id": user.id, "active": True}).to_list(500):
+        r = Recurring.from_mongo(doc)
+        for off in range(days + 1):
+            d = base + timedelta(days=off)
+            if r.start_month > d.strftime("%Y-%m"):
+                continue
+            if d.day == min(r.day, calendar.monthrange(d.year, d.month)[1]):
+                out.append({**r.model_dump(), "due_date": d.isoformat(), "days_left": off})
+                break
+    return sorted(out, key=lambda x: (x["days_left"], -x["amount"]))
+
+
 @api.get("/recurring")
 async def list_recurring(user: User = Depends(current_user)):
     docs = await db.recurring.find({"user_id": user.id}).sort("day", 1).to_list(500)
@@ -506,6 +524,37 @@ async def upsert_budget(body: BudgetIn, user: User = Depends(current_user)):
     q = {"user_id": user.id, "category": body.category, "month": check_month(body.month) if body.month else None}
     await db.budgets.update_one(q, {"$set": {"limit": body.limit, "month": q["month"]}}, upsert=True)
     return Budget.from_mongo(await db.budgets.find_one(q)).model_dump()
+
+
+async def effective_budgets(uid: str, month: str):
+    defaults, overrides = {}, {}
+    for d in await db.budgets.find({"user_id": uid, "month": {"$in": [None, month]}}).to_list(200):
+        b = Budget.from_mongo(d)
+        (overrides if b.month else defaults)[b.category] = b
+    return defaults, overrides
+
+
+class CopyBudgetsIn(BaseModel):
+    from_month: str
+    to_month: str
+
+
+@api.post("/budgets/copy")
+async def copy_budgets(body: CopyBudgetsIn, user: User = Depends(current_user)):
+    src, dst = check_month(body.from_month), check_month(body.to_month)
+    if src == dst:
+        raise HTTPException(422, "Escolha meses diferentes")
+    defaults, overrides = await effective_budgets(user.id, src)
+    source = {**{c: b.limit for c, b in defaults.items()}, **{c: b.limit for c, b in overrides.items()}}
+    if not source:
+        raise HTTPException(400, "Não há orçamentos para copiar neste mês")
+    for cat, limit in source.items():
+        q = {"user_id": user.id, "category": cat, "month": dst}
+        if cat in defaults and defaults[cat].limit == limit:
+            await db.budgets.delete_one(q)
+        else:
+            await db.budgets.update_one(q, {"$set": {"limit": limit}}, upsert=True)
+    return {"ok": True, "count": len(source), "to_month": dst}
 
 
 @api.delete("/budgets/{category}")
@@ -566,10 +615,7 @@ async def build_summary(uid: str, month: str) -> dict:
         groups[EXPENSE_GROUPS.get(cat, "other")] += amt
     targets = {"needs": 0.5, "wants": 0.3, "savings": 0.2}
     rule = {k: {"spent": round(groups[k], 2), "target": round(t["income"] * p, 2), "pct": int(p * 100)} for k, p in targets.items()}
-    defaults, overrides = {}, {}
-    for d in await db.budgets.find({"user_id": uid, "month": {"$in": [None, month]}}).to_list(200):
-        b = Budget.from_mongo(d)
-        (overrides if b.month else defaults)[b.category] = b
+    defaults, overrides = await effective_budgets(uid, month)
     budgets = []
     for cat in sorted(set(defaults) | set(overrides), key=lambda c: list(EXPENSE_GROUPS).index(c)):
         b, base = overrides.get(cat) or defaults[cat], defaults.get(cat)
@@ -591,42 +637,104 @@ async def summary(month: Optional[str] = None, user: User = Depends(current_user
 
 
 # ---------- export ----------
-@api.get("/export")
-async def export_month(month: Optional[str] = None, user: User = Depends(current_user)):
-    month = check_month(month)
-    items = sorted(await month_items(user.id, month), key=lambda x: x["date"])
-    wb = Workbook()
-    ws = wb.active
-    ws.title = month
-    head = Font(bold=True, color="FFFFFF")
-    fill = PatternFill("solid", fgColor="1E3A8A")
-    ws.append([f"Finance Nunes – movimentações de {month}"])
+XLSX = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+MONEY = '"R$" #,##0.00;[Red]-"R$" #,##0.00'
+HEAD_FONT, HEAD_FILL = Font(bold=True, color="FFFFFF"), PatternFill("solid", fgColor="1E3A8A")
+
+
+def month_title(month: str) -> str:
+    y, m = month.split("-")
+    return f"{MONTH_NAMES[int(m) - 1]} de {y}"
+
+
+def header_row(ws, cols):
+    ws.append(cols)
+    for c in ws[ws.max_row]:
+        c.font, c.fill = HEAD_FONT, HEAD_FILL
+
+
+def total_rows(ws, t, label_col=5):
+    ws.append([])
+    for label, v in (("Total de receitas", t["income"]), ("Total de despesas", -t["expense"]), ("Saldo", t["balance"])):
+        ws.append([""] * (label_col - 1) + [label, v])
+        ws.cell(ws.max_row, label_col).font = Font(bold=True)
+        ws.cell(ws.max_row, label_col + 1).number_format = MONEY
+        ws.cell(ws.max_row, label_col + 1).font = Font(bold=True)
+
+
+def fill_month_sheet(ws, month: str, items: list):
+    ws.append([f"Finance Nunes – movimentações de {month_title(month)}"])
     ws["A1"].font = Font(bold=True, size=14)
     ws.append([])
-    ws.append(["Data", "Tipo", "Categoria", "Descrição", "Observação", "Valor (R$)"])
-    for c in ws[3]:
-        c.font, c.fill = head, fill
-    money = '"R$" #,##0.00;[Red]-"R$" #,##0.00'
-    for it in items:
+    header_row(ws, ["Data", "Tipo", "Categoria", "Descrição", "Observação", "Valor (R$)"])
+    for it in sorted(items, key=lambda x: x["date"]):
         obs = "Recorrente" if it.get("recurring") else (f"Parcela {it['installment_no']}/{it['installment_total']}" if it.get("installment_no") else "")
         y, m, d = it["date"].split("-")
         val = it["amount"] if it["type"] == "income" else -it["amount"]
         ws.append([f"{d}/{m}/{y}", "Receita" if it["type"] == "income" else "Despesa", LABELS.get(it["category"], it["category"]), it.get("description", ""), obs, val])
-        ws.cell(ws.max_row, 6).number_format = money
-    t = totals(items)
-    ws.append([])
-    for label, v in (("Total de receitas", t["income"]), ("Total de despesas", -t["expense"]), ("Saldo", t["balance"])):
-        ws.append(["", "", "", "", label, v])
-        ws.cell(ws.max_row, 5).font = Font(bold=True)
-        ws.cell(ws.max_row, 6).number_format = money
-        ws.cell(ws.max_row, 6).font = Font(bold=True)
+        ws.cell(ws.max_row, 6).number_format = MONEY
+    if not items:
+        ws.append(["Sem movimentações neste mês"])
+    total_rows(ws, totals(items))
     for col, w in zip("ABCDEF", (12, 10, 18, 36, 16, 16)):
         ws.column_dimensions[col].width = w
+
+
+def xlsx_response(wb, filename):
     buf = io.BytesIO()
     wb.save(buf)
     buf.seek(0)
-    return StreamingResponse(buf, media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                             headers={"Content-Disposition": f'attachment; filename="finance-nunes-{month}.xlsx"'})
+    return StreamingResponse(buf, media_type=XLSX, headers={"Content-Disposition": f'attachment; filename="{filename}"'})
+
+
+@api.get("/export")
+async def export_month(month: Optional[str] = None, user: User = Depends(current_user)):
+    month = check_month(month)
+    wb = Workbook()
+    wb.active.title = month_title(month)[:31]
+    fill_month_sheet(wb.active, month, await month_items(user.id, month))
+    return xlsx_response(wb, f"finance-nunes-{month}.xlsx")
+
+
+@api.get("/export/year")
+async def export_year(year: Optional[int] = None, user: User = Depends(current_user)):
+    year = year or datetime.now(timezone.utc).year
+    if not 2000 <= year <= 2100:
+        raise HTTPException(422, "Ano inválido")
+    wb = Workbook()
+    resume = wb.active
+    resume.title = "Resumo"
+    resume.append([f"Finance Nunes – resumo de {year}"])
+    resume["A1"].font = Font(bold=True, size=14)
+    resume.append([])
+    header_row(resume, ["Mês", "Receitas (R$)", "Despesas (R$)", "Saldo (R$)"])
+    by_cat_year, year_items = {}, []
+    for i, name in enumerate(MONTH_NAMES):
+        month = f"{year}-{i + 1:02d}"
+        items = await month_items(user.id, month)
+        year_items += items
+        t = totals(items)
+        resume.append([name, t["income"], -t["expense"], t["balance"]])
+        for c in range(2, 5):
+            resume.cell(resume.max_row, c).number_format = MONEY
+        for k, v in t["by_category"].items():
+            by_cat_year[k] = by_cat_year.get(k, 0) + v
+        fill_month_sheet(wb.create_sheet(name), month, items)
+    t = totals(year_items)
+    resume.append(["Total do ano", t["income"], -t["expense"], t["balance"]])
+    for c in range(1, 5):
+        resume.cell(resume.max_row, c).font = Font(bold=True)
+        if c > 1:
+            resume.cell(resume.max_row, c).number_format = MONEY
+    resume.append([])
+    header_row(resume, ["Despesas por categoria", "Total (R$)", "% das despesas"])
+    for k, v in sorted(by_cat_year.items(), key=lambda x: -x[1]):
+        resume.append([LABELS.get(k, k), -v, v / t["expense"] if t["expense"] else 0])
+        resume.cell(resume.max_row, 2).number_format = MONEY
+        resume.cell(resume.max_row, 3).number_format = "0.0%"
+    for col, w in zip("ABCD", (24, 16, 16, 16)):
+        resume.column_dimensions[col].width = w
+    return xlsx_response(wb, f"finance-nunes-{year}.xlsx")
 
 
 # ---------- assistant ----------
