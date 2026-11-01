@@ -20,6 +20,8 @@ Rian Nunes – single user tracking monthly personal finances on desktop/mobile.
 - AI assistant answering from user's saved data
 - Origin-animated glass modals / mobile bottom sheets, keyboard category picker, reduced motion
 - Tested: 44/44 backend, full frontend flow (iteration_1)
+- Per-month budget overrides (special limit for a single month, falls back to default) – 2026-06
+- Excel export (.xlsx) of the month's transactions with totals – 2026-06 (iteration_2 passed)
 
 ## Backlog
 - P1: CSV/Excel export, password reset flow, per-month budget overrides

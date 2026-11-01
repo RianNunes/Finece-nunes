@@ -1,0 +1,27 @@
+{
+  "summary": "Iteration 2 verified the two new features end-to-end: (1) per-month budget overrides via PUT /api/budgets with optional month + GET /api/summary returning override/default_limit, DELETE /api/budgets/{category}?month= reverts to default; (2) Excel export via GET /api/export?month returning valid .xlsx with Data/Tipo/Categoria/Descrição/Observação/Valor headers, recurring rows marked 'Recorrente', installments as 'Parcela N/T', and totals rows. 10/10 new pytest cases pass. Full UI happy path on Planejamento (add default lazer R$400, next-month override R$900 shows budget-override-tag-lazer, previous month unchanged, delete override reverts to default, delete default removes row) and Movimentações (export-button disabled with 0 txs, enabled after creating one, downloads finance-nunes-2026-11.xlsx of 5315 bytes). Dashboard budgets-card regression OK. All test data cleaned up; admin account remains clean.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {"ui_bugs": [], "integration_issues": [], "design_issues": []},
+  "test_report_links": [
+    "/app/backend/tests/test_budgets_export.py",
+    "/app/backend/tests/test_finance_api.py",
+    "/app/test_reports/pytest/iter2_budgets_export.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "server.py startup drops any legacy unique index on (user_id, category) and creates (user_id, category, month) unique — correct migration for override support.",
+    "upsert_budget always writes month=null for default; delete_budget matches with month=None when query param omitted — exact match avoids accidentally wiping overrides. Good.",
+    "build_summary merges defaults + overrides and preserves default_limit for UI (used in modal subtitle and override-removal confirm). Good.",
+    "/api/export streams openpyxl Workbook with proper Content-Disposition and spreadsheetml media type; recurring + installment rows are included because month_items() already merges recurring. Totals use t['expense'] (positive) and are rendered as -value — matches sheet money format.",
+    "server.py now 740 lines — slightly past 700-line soft cap; consider splitting into routers (auth, planning, chat, export) in a future refactor. Not a blocker.",
+    "Minor: GET /api/export has no size cap; a user with huge history is fine today but worth a `.to_list(limit)` sanity bound later."
+  ],
+  "updated_files": ["/app/backend/tests/test_budgets_export.py"],
+  "success_rate": {"backend": "100%", "frontend": "100%"},
+  "test_credentials": "Admin rian@financenunes.com / Nunes@2026. New-feature tests use throwaway TEST_* registered users.",
+  "seed_data_creation": "All test data created in backend/frontend tests was deleted at the end of each test. Admin account verified clean.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Features complete and stable. test_budgets_export.py covers: default-applies-to-all-months, override-only-affects-target-month, delete-override-reverts-to-default, delete-default-removes-everywhere, override-without-default (default_limit=null), invalid month 422, export headers + rows (including Recorrente + Parcela 1/2) + totals, empty-month export, auth required, invalid month 422. UI test flow in iteration log covers full override lifecycle plus xlsx download.",
+  "rca of the issue": "n/a — nothing failed."
+}
